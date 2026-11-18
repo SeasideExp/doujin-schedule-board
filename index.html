@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>まもなく即売会が参ります (Ver.0.19c)</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Main Interactive App Container (hidden during print) -->
+  <div id="app-shell" class="app-shell no-print">
+    <!-- Top Global Bar -->
+    <header class="topbar">
+      <div class="topbar-brand">
+        <span class="brand-icon" aria-hidden="true">🚉</span>
+        <div class="brand-title-row">
+          <h1 class="brand-title">まもなく即売会が参ります</h1>
+          <span id="app-version-badge" class="version-badge">Ver.0.19c</span>
+          <button id="btn-open-about" class="topbar-mini-link" type="button">このツールについて</button>
+          <button id="btn-open-help" class="topbar-mini-link" type="button">ヘルプ</button>
+        </div>
+      </div>
+
+      <!-- Top Center Progress Info Bar -->
+      <div id="topbar-info-meter" class="topbar-info-meter" aria-label="経過・締切情報バー">
+        <div class="top-meter-item" title="今日の経過割合">
+          <div class="top-meter-head">
+            <span class="top-meter-label">今日</span>
+            <span id="meter-today-val" class="top-meter-val">--.-%</span>
+          </div>
+          <div class="top-meter-track">
+            <div id="meter-today-bar" class="top-meter-fill fill-today"></div>
+          </div>
+        </div>
+
+        <div class="top-meter-item" title="今月の経過割合">
+          <div class="top-meter-head">
+            <span class="top-meter-label">今月</span>
+            <span id="meter-month-val" class="top-meter-val">--.-%</span>
+          </div>
+          <div class="top-meter-track">
+            <div id="meter-month-bar" class="top-meter-fill fill-month"></div>
+          </div>
+        </div>
+
+        <button id="btn-top-deadline" class="top-meter-item top-meter-deadline" type="button" title="クリックで締切カウントダウンを設定・変更">
+          <div class="top-meter-head">
+            <span id="meter-dl-label" class="top-meter-label">[締切未設定]</span>
+            <span id="meter-dl-val" class="top-meter-val"></span>
+          </div>
+          <div class="top-meter-track">
+            <div id="meter-dl-bar" class="top-meter-fill fill-deadline"></div>
+          </div>
+        </button>
+      </div>
+
+      <div class="topbar-actions">
+        <button id="btn-export-json" class="btn btn-secondary btn-sm" type="button">💾 データ保存 (JSON)</button>
+        <input id="file-import-input" type="file" accept=".json,application/json" hidden />
+      </div>
+    </header>
+
+    <!-- App Body: Two-Pane Workspace + Right Collapsible Settings Drawer -->
+    <div class="app-body">
+      <!-- Main Two-Pane Workspace -->
+      <main id="workspace" class="workspace">
+      <!-- ==================== LEFT PANE: STATION DEPARTURE BOARD ==================== -->
+      <section class="pane pane-left" aria-label="発車標スケジュールボード">
+        <div class="station-bezel">
+          <!-- Station Sign Header -->
+          <div class="station-header">
+            <div class="station-sign">
+              <div class="station-title-wrap">
+                <h2 class="station-title">イベント・原稿締切 発車標</h2>
+              </div>
+            </div>
+            <div class="station-clock-box">
+              <div id="live-date" class="live-date">----/--/-- (-)</div>
+              <div id="live-clock" class="live-clock">--:--:--</div>
+            </div>
+          </div>
+
+          <!-- Optional LED Marquee Scroll Display -->
+          <div id="led-marquee-bar" class="led-marquee-bar hidden" aria-live="polite">
+            <div id="led-marquee-track" class="led-marquee-track">
+              <span id="led-marquee-text" class="led-marquee-text"></span>
+            </div>
+          </div>
+
+          <!-- Board Filter Controls -->
+          <div class="board-controls">
+            <div class="board-filter-group">
+              <label class="board-control-label" for="board-scope-select">表示範囲</label>
+              <select id="board-scope-select" class="board-select" autocomplete="off">
+                <option value="upcoming" selected>今日以降 (全期間)</option>
+                <option value="year">選択年 (2026年)</option>
+                <option value="all">全期間 (すべて)</option>
+              </select>
+            </div>
+
+            <div class="board-filter-group">
+              <label class="board-control-label" for="board-type-select">種別・状況</label>
+              <select id="board-type-select" class="board-select" autocomplete="off">
+                <option value="all" selected>すべて</option>
+                <option value="events">イベントのみ</option>
+                <option value="deadlines">原稿締切のみ</option>
+              </select>
+            </div>
+
+            <div class="board-filter-group board-toggle-wrap">
+              <label class="board-checkbox">
+                <input id="board-hide-past" type="checkbox" autocomplete="off" />
+                <span>終了/完了を隠す</span>
+              </label>
+              <label class="board-checkbox">
+                <input id="board-hide-absent" type="checkbox" autocomplete="off" />
+                <span>不参加を隠す</span>
+              </label>
+              <label class="board-checkbox">
+                <input id="board-hide-staff" type="checkbox" autocomplete="off" />
+                <span>売り子参加を隠す</span>
+              </label>
+              <label class="board-checkbox">
+                <input id="board-hide-general" type="checkbox" autocomplete="off" />
+                <span>一般参加を隠す</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- LED Display Screen -->
+          <div class="led-screen">
+            <div class="led-table-head" aria-hidden="true">
+              <div class="col-type">種別 / 状況</div>
+              <div class="col-date">年月日</div>
+              <div class="col-name">ことがら</div>
+              <div class="col-days">残り日数</div>
+            </div>
+
+            <div id="led-board-body" class="led-table-body" role="list">
+              <!-- Populated dynamically by JS -->
+            </div>
+
+            <div class="led-footer-ticker">
+              <span id="led-summary-text" class="led-ticker-text">読み込み中...</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Resizable Divider -->
+      <div
+        id="pane-resizer"
+        class="pane-resizer"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="左右ペインの幅を調整"
+        aria-valuemin="28"
+        aria-valuemax="72"
+        aria-valuenow="46"
+        tabindex="0"
+        title="ドラッグで幅を調整（ダブルクリックでリセット）"
+      ></div>
+
+      <!-- ==================== RIGHT PANE: YEAR / DAY SCHEDULE PLANNER ==================== -->
+      <section class="pane pane-right" aria-label="年別・日別スケジュール管理">
+        <!-- Planner Header: Year Selector & Main Actions -->
+        <div class="planner-header">
+          <div class="year-nav">
+            <button id="btn-prev-year" class="btn-icon" type="button" aria-label="前年">◀</button>
+            <div class="year-select-wrap">
+              <select id="year-select" class="year-select" aria-label="表示年"></select>
+            </div>
+            <button id="btn-next-year" class="btn-icon" type="button" aria-label="翌年">▶</button>
+            <button id="btn-jump-today" class="btn btn-ghost btn-xs" type="button">今日へ</button>
+          </div>
+
+          <div class="planner-add-actions">
+            <button id="btn-add-event" class="btn btn-primary btn-sm" type="button">＋ イベントを追加</button>
+            <button id="btn-add-deadline" class="btn btn-accent-red btn-sm" type="button">＋ 原稿締切を追加</button>
+          </div>
+        </div>
+
+        <!-- Year Summary Pills -->
+        <div id="year-stats-bar" class="year-stats-bar">
+          <!-- Populated dynamically -->
+        </div>
+
+        <!-- Month Tabs & View Switcher -->
+        <div class="planner-subbar">
+          <div id="month-tabs" class="month-tabs" role="tablist" aria-label="月選択">
+            <!-- 1月..12月 + 年間 -->
+          </div>
+          <div class="view-mode-switch" role="group" aria-label="表示切替">
+            <button id="btn-view-calendar" class="view-tab active" type="button">📅 カレンダー</button>
+            <button id="btn-view-list" class="view-tab" type="button">📋 日別一覧</button>
+          </div>
+        </div>
+
+        <!-- Calendar View -->
+        <div id="calendar-view-container" class="planner-body calendar-split-body">
+          <div id="calendar-top-pane" class="calendar-top-pane">
+            <div class="calendar-legend">
+              <span class="legend-item"><i class="dot dot-participate"></i>参加</span>
+              <span class="legend-item"><i class="dot dot-unapplied"></i>参加(未申込)</span>
+              <span class="legend-item"><i class="dot dot-considering"></i>検討</span>
+              <span class="legend-item"><i class="dot dot-absent"></i>不参加</span>
+              <span class="legend-item"><i class="dot dot-general"></i>一般参加</span>
+              <span class="legend-item"><i class="dot dot-staff"></i>売り子</span>
+              <span class="legend-item"><i class="dot dot-deadline"></i>締切</span>
+            </div>
+
+            <div class="calendar-weekdays">
+              <div class="wk-sun">日</div>
+              <div>月</div>
+              <div>火</div>
+              <div>水</div>
+              <div>木</div>
+              <div>金</div>
+              <div class="wk-sat">土</div>
+            </div>
+
+            <div id="calendar-grid" class="calendar-grid">
+              <!-- 35/42 Day Cells -->
+            </div>
+          </div>
+
+          <div
+            id="calendar-resizer"
+            class="calendar-resizer"
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="カレンダーと選択日パネルの高さを調整"
+            aria-valuemin="25"
+            aria-valuemax="78"
+            aria-valuenow="58"
+            tabindex="0"
+            title="ドラッグで高さを調整（ダブルクリックでリセット）"
+          ></div>
+
+          <!-- Selected Day Detail & Conflict Comparison Panel -->
+          <div id="selected-day-panel" class="selected-day-panel">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- Day-by-Day List View -->
+        <div id="list-view-container" class="planner-body hidden">
+          <div class="list-filter-bar">
+            <label class="filter-chip">
+              <input id="list-only-conflicts" type="checkbox" autocomplete="off" />
+              <span>⚠ 同日重複（2件以上）のみ表示</span>
+            </label>
+            <div class="list-kind-filter">
+              <select id="list-kind-select" class="input-sm" autocomplete="off">
+                <option value="all">すべて表示</option>
+                <option value="events">イベントのみ</option>
+                <option value="deadlines">原稿締切のみ</option>
+              </select>
+            </div>
+            <input id="list-search-input" class="input-sm list-search" type="search" placeholder="イベント名・場所・メモを検索..." autocomplete="off" />
+          </div>
+          <div id="day-list-content" class="day-list-content">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </section>
+    </main>
+
+      <!-- Right Collapsible Settings Drawer -->
+      <aside id="settings-drawer" class="settings-drawer" aria-label="設定パネル">
+        <div class="drawer-header">
+          <button id="btn-toggle-drawer" class="drawer-toggle-btn" type="button" aria-expanded="true" aria-controls="drawer-content" title="設定パネルを折りたたむ">▶</button>
+          <span class="drawer-title">メニュー</span>
+        </div>
+
+        <!-- Collapsed Quick Rail -->
+        <div class="drawer-collapsed-rail">
+          <button class="drawer-rail-btn" type="button" data-drawer-quick-tab="file" title="ファイル">📁</button>
+          <button class="drawer-rail-btn" type="button" data-drawer-quick-tab="settings" title="設定・出力">⚙️</button>
+        </div>
+
+        <div id="drawer-content" class="drawer-content">
+          <div class="drawer-tabs" role="tablist" aria-label="設定パネルタブ">
+            <button id="tab-drawer-file" class="drawer-tab active" type="button" role="tab" aria-selected="true">📁 ファイル</button>
+            <button id="tab-drawer-settings" class="drawer-tab" type="button" role="tab" aria-selected="false">⚙️ 設定・出力</button>
+          </div>
+
+          <div id="drawer-panel-file" class="drawer-panel" role="tabpanel" aria-labelledby="tab-drawer-file">
+            <button id="btn-export-json-panel" class="btn btn-secondary btn-sm drawer-btn" type="button">💾 データ保存 (JSON)</button>
+            <button id="btn-import-json" class="btn btn-secondary btn-sm drawer-btn" type="button">📂 データ読込 (JSON)</button>
+            <button id="btn-load-sample" class="btn btn-ghost btn-sm drawer-btn" type="button" title="既存入力を初期化してサンプル予定を読み込みます">🧪 サンプル読込</button>
+            <hr class="drawer-sep" />
+            <button id="btn-clear-all" class="btn btn-danger-ghost btn-sm drawer-btn" type="button" title="全データを初期化">🗑 初期化</button>
+          </div>
+
+          <div id="drawer-panel-settings" class="drawer-panel hidden" role="tabpanel" aria-labelledby="tab-drawer-settings">
+            <button id="btn-open-presets" class="btn btn-secondary btn-sm drawer-btn" type="button">🏷️ 候補マスタ</button>
+            <button id="btn-open-ui-settings" class="btn btn-secondary btn-sm drawer-btn" type="button">🎨 UI設定</button>
+            <button id="btn-open-scroll-settings" class="btn btn-secondary btn-sm drawer-btn" type="button">📜 スクロール表示設定</button>
+            <button id="btn-open-pdf-modal-side" class="btn btn-secondary btn-sm drawer-btn" type="button">📄 年別PDFログ出力</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- ==================== NATIVE TOP-LAYER DIALOGS ==================== -->
+
+  <!-- Unified Event & Deadline Schedule Dialog -->
+  <dialog id="modal-event" class="modal-dialog" aria-labelledby="modal-event-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-event-title">イベントスケジュール管理</h3>
+        <button class="modal-close" data-close-modal="modal-event" type="button" aria-label="閉じる">✕</button>
+      </div>
+
+      <!-- Mode Switcher: Event <-> Deadline inside the same dialog -->
+      <div class="modal-mode-tabs" role="tablist" aria-label="登録種別の切替">
+        <button id="tab-modal-event" class="modal-mode-tab active" type="button" role="tab" aria-selected="true">📅 イベント設定</button>
+        <button id="tab-modal-deadline" class="modal-mode-tab" type="button" role="tab" aria-selected="false">⏰ 締切設定</button>
+      </div>
+
+      <!-- Event Form -->
+      <form id="form-event" class="modal-form">
+        <div class="modal-body">
+          <input type="hidden" id="evt-id" />
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="evt-date">開催日 <span class="req">*</span></label>
+              <input id="evt-date" type="date" min="1000-01-01" max="9999-12-31" required />
+            </div>
+
+            <div class="form-group">
+              <label for="evt-status">参加状況 <span class="req">*</span></label>
+              <select id="evt-status" class="form-select" required>
+                <option value="participate">参加</option>
+                <option value="unapplied">参加（未申込）</option>
+                <option value="considering">検討</option>
+                <option value="absent">不参加</option>
+                <option value="general">一般参加</option>
+                <option value="staff">売り子参加</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Event Name (Free Input + Save/Reuse Presets) -->
+          <div class="form-group">
+            <div class="label-with-action">
+              <label for="evt-name">イベント名（自由入力 / 候補から選択） <span class="req">*</span></label>
+              <button id="btn-save-event-preset" class="btn btn-xs btn-outline-accent" type="button" title="入力中のイベント名を候補に保存して次回から再利用できます">★ 候補に保存</button>
+            </div>
+            <input id="evt-name" type="text" list="datalist-event-presets" placeholder="例：◯◯マーケット、◯◯オンリー" required autocomplete="off" />
+            <datalist id="datalist-event-presets"></datalist>
+            <div id="evt-preset-chips" class="preset-chips-wrap"></div>
+          </div>
+
+          <!-- Genre (Free Input + Save/Reuse Presets) -->
+          <div class="form-group">
+            <div class="label-with-action">
+              <label for="evt-genre">ジャンル名（自由入力 / 候補から選択）</label>
+              <button id="btn-save-genre-preset" class="btn btn-xs btn-outline-accent" type="button" title="入力中のジャンル名を候補に保存して次回から再利用できます">★ 候補に保存</button>
+            </div>
+            <input id="evt-genre" type="text" list="datalist-genre-presets" placeholder="例：一次創作、◯◯ジャンル" autocomplete="off" />
+            <datalist id="datalist-genre-presets"></datalist>
+            <div id="genre-preset-chips" class="preset-chips-wrap"></div>
+          </div>
+
+          <!-- Venue (Free Input + Save/Reuse Presets) -->
+          <div class="form-group">
+            <div class="label-with-action">
+              <label for="evt-venue">場所・会場（自由入力 / 候補から選択）</label>
+              <button id="btn-save-venue-preset" class="btn btn-xs btn-outline-accent" type="button" title="入力中の場所を候補に保存して次回から再利用できます">★ 候補に保存</button>
+            </div>
+            <input id="evt-venue" type="text" list="datalist-venue-presets" placeholder="ここに会場名を入力" autocomplete="off" />
+            <datalist id="datalist-venue-presets"></datalist>
+            <div id="venue-preset-chips" class="preset-chips-wrap"></div>
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="evt-time">開催時間（任意）</label>
+              <input id="evt-time" type="text" placeholder="例：11:00-16:00" />
+            </div>
+            <div class="form-group">
+              <label for="evt-space">スペースNo. / 配置（任意）</label>
+              <input id="evt-space" type="text" placeholder="例：東9 ん-99a" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="evt-memo">メモ・検討ポイント（任意）</label>
+            <textarea id="evt-memo" rows="2" placeholder="参加費、サークル申込締切、移動時間、頒布予定物など"></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button id="btn-delete-event" class="btn btn-danger-ghost hidden" type="button">削除</button>
+          <div class="modal-footer-right">
+            <button class="btn btn-ghost" data-close-modal="modal-event" type="button">キャンセル</button>
+            <button class="btn btn-primary" type="submit">保存する</button>
+          </div>
+        </div>
+      </form>
+
+      <!-- Deadline Form (Inside the same dialog) -->
+      <form id="form-deadline" class="modal-form hidden">
+        <div class="modal-body">
+          <input type="hidden" id="dl-id" />
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="dl-date">締切日 <span class="req">*</span></label>
+              <input id="dl-date" type="date" min="1000-01-01" max="9999-12-31" required />
+            </div>
+            <div class="form-group">
+              <label for="dl-time">締切時刻（任意）</label>
+              <input id="dl-time" type="text" placeholder="例：23:59 / 正午" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="dl-name">締切名 <span class="req">*</span></label>
+            <input id="dl-name" type="text" placeholder="例：新刊A 早割入稿締切、表紙データ入稿" required />
+            <div class="quick-fill-row">
+              <span class="quick-fill-label">定型：</span>
+              <button type="button" class="chip-btn dl-quick-chip" data-dl-text="早割入稿締切">早割入稿締切</button>
+              <button type="button" class="chip-btn dl-quick-chip" data-dl-text="通常入稿締切">通常入稿締切</button>
+              <button type="button" class="chip-btn dl-quick-chip" data-dl-text="表紙データ締切">表紙データ締切</button>
+              <button type="button" class="chip-btn dl-quick-chip" data-dl-text="サークル申込締切">サークル申込締切</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="dl-related">関連イベント（任意）</label>
+            <input id="dl-related" type="text" list="datalist-related-events" placeholder="関連するイベント名（例：◯◯マーケット）" autocomplete="off" />
+            <datalist id="datalist-related-events"></datalist>
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-inline">
+              <input id="dl-completed" type="checkbox" />
+              <span>この締切は完了（入稿済）にする</span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label for="dl-memo">メモ（印刷所・仕様・ページ数など）</label>
+            <textarea id="dl-memo" rows="2" placeholder="例：〇〇印刷所 / B5 28P / 割増なし最終"></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button id="btn-delete-deadline" class="btn btn-danger-ghost hidden" type="button">削除</button>
+          <div class="modal-footer-right">
+            <button class="btn btn-ghost" data-close-modal="modal-event" type="button">キャンセル</button>
+            <button class="btn btn-accent-red" type="submit">保存する</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- Presets Manager Dialog -->
+  <dialog id="modal-presets" class="modal-dialog modal-dialog-lg" aria-labelledby="modal-presets-title">
+    <div class="modal-card modal-card-lg">
+      <div class="modal-header">
+        <h3 id="modal-presets-title">よく使うイベント名・場所の候補マスタ</h3>
+        <button class="modal-close" data-close-modal="modal-presets" type="button" aria-label="閉じる">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="help-text">何度も開催されるイベント名や会場を登録しておくと、予定作成時にワンクリックで入力できます。登録データと一緒にJSONファイルにも保存されます。</p>
+
+        <div class="presets-columns">
+          <!-- Event Name Presets -->
+          <div class="preset-panel">
+            <h4>📚 登録済みイベント名</h4>
+            <div class="preset-add-form">
+              <input id="preset-new-event-name" type="text" placeholder="イベント名（例：◯◯マーケット）" />
+              <input id="preset-new-event-venue" type="text" placeholder="既定の場所（任意）" />
+              <button id="btn-add-event-preset" class="btn btn-primary btn-sm" type="button">追加</button>
+            </div>
+            <ul id="preset-event-list" class="preset-manage-list"></ul>
+          </div>
+
+          <!-- Venue Presets -->
+          <div class="preset-panel">
+            <h4>📍 登録済み 場所・会場</h4>
+            <div class="preset-add-form">
+              <input id="preset-new-venue-name" type="text" placeholder="ここに会場名を入力" />
+              <button id="btn-add-venue-preset" class="btn btn-primary btn-sm" type="button">追加</button>
+            </div>
+            <ul id="preset-venue-list" class="preset-manage-list"></ul>
+          </div>
+
+          <!-- Genre Presets -->
+          <div class="preset-panel">
+            <h4>🎨 登録済み ジャンル名</h4>
+            <div class="preset-add-form">
+              <input id="preset-new-genre-name" type="text" placeholder="例：一次創作、◯◯ジャンル" />
+              <button id="btn-add-genre-preset" class="btn btn-primary btn-sm" type="button">追加</button>
+            </div>
+            <ul id="preset-genre-list" class="preset-manage-list"></ul>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div class="modal-footer-right">
+          <button class="btn btn-primary" data-close-modal="modal-presets" type="button">閉じる</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- PDF Log Preview & Export Dialog -->
+  <dialog id="modal-pdf" class="modal-dialog modal-dialog-xl" aria-labelledby="modal-pdf-title">
+    <div class="modal-card modal-card-xl">
+      <div class="modal-header">
+        <h3 id="modal-pdf-title">年別 イベント参加・締切ログ（PDF出力）</h3>
+        <button class="modal-close" data-close-modal="modal-pdf" type="button" aria-label="閉じる">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="pdf-toolbar">
+          <div class="pdf-option">
+            <label for="pdf-year-select">対象年</label>
+            <select id="pdf-year-select" class="input-sm"></select>
+          </div>
+          <div class="pdf-option">
+            <label for="pdf-filter-select">出力対象</label>
+            <select id="pdf-filter-select" class="input-sm">
+              <option value="board">現在の発車標フィルタに合わせる</option>
+              <option value="confirmed">参加系イベント＋締切のみ</option>
+              <option value="active">参加系・検討イベント＋締切</option>
+              <option value="all">すべて（不参加含む）</option>
+              <option value="events_only">イベントのみ（すべて）</option>
+              <option value="deadlines_only">原稿締切のみ</option>
+            </select>
+          </div>
+          <div class="pdf-toolbar-actions">
+            <button id="btn-export-csv" class="btn btn-secondary btn-sm" type="button">📊 CSV保存</button>
+            <button id="btn-print-pdf" class="btn btn-primary btn-sm" type="button">🖨️ PDF出力（印刷ダイアログで「PDFに保存」）</button>
+          </div>
+        </div>
+
+        <p class="help-text">※「PDF出力」を押すと印刷画面が開きます。送信先で<strong>「PDFに保存」</strong>を選ぶと、下のシンプルな表形式ログがA4サイズのPDFとして保存されます。</p>
+
+        <div id="pdf-preview-wrapper" class="pdf-preview-wrapper">
+          <!-- Populated dynamically with the exact printable table -->
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- JSON Import Mode Dialog -->
+  <dialog id="modal-import" class="modal-dialog" aria-labelledby="modal-import-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-import-title">JSONデータの読み込み方法</h3>
+        <button class="modal-close" data-close-modal="modal-import" type="button" aria-label="閉じる">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="import-summary-box" class="import-summary-box"></div>
+        <p class="help-text">現在のデータに対してどのように読み込むか選択してください。</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" data-close-modal="modal-import" type="button">キャンセル</button>
+        <button id="btn-import-merge" class="btn btn-secondary" type="button">現在のデータに追加・統合</button>
+        <button id="btn-import-replace" class="btn btn-primary" type="button">上書きして読み込む</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- UI Settings Dialog -->
+  <dialog id="modal-ui-settings" class="modal-dialog modal-dialog-lg" aria-labelledby="modal-ui-settings-title">
+    <div class="modal-card modal-card-lg">
+      <div class="modal-header">
+        <h3 id="modal-ui-settings-title">🎨 UI設定・カラーユニバーサルデザイン（CUD）</h3>
+        <button class="modal-close" data-close-modal="modal-ui-settings" type="button" aria-label="閉じる">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- CUD Option -->
+        <div class="cud-panel">
+          <label class="cud-toggle-row">
+            <input id="ui-cud-mode" type="checkbox" />
+            <div>
+              <strong>カラーユニバーサルデザイン（CUD）対応を有効にする</strong>
+              <p class="help-text" style="margin-top:3px;">
+                JFLY（岡部・伊藤）推奨カラーユニバーサルデザインパレットに準拠し、P型・D型・T型色覚および白黒印刷時でも識別しやすい色調に切り替えます。
+              </p>
+            </div>
+          </label>
+          <div class="cud-palette-strip" aria-label="JFLY CUD推奨カラーパレット見本">
+            <span class="cud-swatch" style="background:#ff4b00;color:#fff;">朱赤 #ff4b00</span>
+            <span class="cud-swatch" style="background:#005aff;color:#fff;">ブルー #005aff</span>
+            <span class="cud-swatch" style="background:#03af7a;color:#fff;">グリーン #03af7a</span>
+            <span class="cud-swatch" style="background:#f6aa00;color:#111;">オレンジ #f6aa00</span>
+            <span class="cud-swatch" style="background:#990099;color:#fff;">パープル #990099</span>
+            <span class="cud-swatch" style="background:#804000;color:#fff;">ブラウン #804000</span>
+            <span class="cud-swatch" style="background:#4dc4ff;color:#111;">スカイブルー #4dc4ff</span>
+            <span class="cud-swatch" style="background:#fff100;color:#111;">イエロー #fff100</span>
+          </div>
+        </div>
+
+        <!-- Top Info Bar Visibility & Font Scale -->
+        <div class="form-row-2">
+          <div class="form-group">
+            <label>上部情報バー</label>
+            <label class="checkbox-inline" style="padding:7px 10px;border:1px solid var(--border-light);border-radius:6px;background:var(--bg-subtle);">
+              <input id="ui-show-top-info-bar" type="checkbox" checked />
+              <span>表示する（今日・今月・締切）</span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label for="ui-font-scale">文字サイズ（発車標・カード）</label>
+            <select id="ui-font-scale" class="form-select">
+              <option value="small">小（コンパクト）</option>
+              <option value="normal">標準</option>
+              <option value="large">大（見やすい）</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Remaining Days Range Adjustment -->
+        <div class="blink-panel">
+          <h4>⏳ 残り日数の調整（左ペイン色分け・点滅基準）</h4>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="ui-urgent-days">僅少・点滅対象の上限（あと◯日以内）</label>
+              <input id="ui-urgent-days" type="number" min="0" max="365" value="7" />
+            </div>
+            <div class="form-group">
+              <label for="ui-soon-days">中間色（オレンジ）の上限（あと◯日以内）</label>
+              <input id="ui-soon-days" type="number" min="0" max="365" value="30" />
+            </div>
+          </div>
+          <p class="help-text">※ 上記の中間色上限を超えた予定は緑色で表示されます（標準：僅少 7日以内 ／ 中間 30日以内）。</p>
+        </div>
+
+        <!-- Blink Options (Left Pane) -->
+        <div class="blink-panel">
+          <h4>✨ 発車標の点滅設定（左画面）</h4>
+          <label class="checkbox-inline">
+            <input id="ui-blink-deadline" type="checkbox" />
+            <span>締切が近いものを点滅させる（未完了）</span>
+          </label>
+          <label class="checkbox-inline">
+            <input id="ui-blink-few-days" type="checkbox" />
+            <span>残り日数が少ないものを点滅させる</span>
+          </label>
+          <div class="blink-speed-row">
+            <label for="ui-blink-speed">点滅速度（点灯 / 消灯）</label>
+            <input id="ui-blink-speed" type="range" min="0.3" max="3.0" step="0.1" value="1.0" />
+            <span id="ui-blink-speed-label" class="blink-speed-label">1.0秒 / 1.0秒</span>
+          </div>
+        </div>
+
+        <div class="ui-color-grid">
+          <div class="ui-color-section">
+            <h4>🚉 左ペイン（発車標）の色調</h4>
+            <label class="color-picker-row">
+              <span>発車標 背景色</span>
+              <input id="ui-led-bg" type="color" />
+            </label>
+            <label class="color-picker-row">
+              <span>「参加」イベント文字色</span>
+              <input id="ui-led-participate" type="color" />
+            </label>
+            <label class="color-picker-row">
+              <span>「一般・売り子参加」文字色</span>
+              <input id="ui-led-green" type="color" />
+            </label>
+            <label class="color-picker-row">
+              <span>「締切」名称文字色</span>
+              <input id="ui-led-deadline" type="color" />
+            </label>
+            <label class="color-picker-row">
+              <span>年月日・検討 文字色</span>
+              <input id="ui-led-amber" type="color" />
+            </label>
+            <label class="color-picker-row">
+              <span>残り日数僅少 バッジ背景色</span>
+              <input id="ui-led-urgent-bg" type="color" />
+            </label>
+          </div>
+
+          <div class="ui-color-section">
+            <h4>📅 右ペイン・共通の色調</h4>
+            <label class="color-picker-row">
+              <span>スケジュール本文 文字色</span>
+              <input id="ui-planner-text" type="color" />
+            </label>
+            <label class="color-picker-row">
+              <span>プライマリ（ボタン・選択枠）色</span>
+              <input id="ui-primary-color" type="color" />
+            </label>
+            <label class="color-picker-row">
+              <span>「参加（未申込）」強調色</span>
+              <input id="ui-unapplied-accent" type="color" />
+            </label>
+          </div>
+
+          <div class="ui-color-section ui-color-section-wide">
+            <h4>📊 上部情報バーの色調</h4>
+            <div class="ui-color-subgrid">
+              <label class="color-picker-row">
+                <span>情報バー 背景色</span>
+                <input id="ui-top-meter-bg" type="color" />
+              </label>
+              <label class="color-picker-row">
+                <span>数値（%）文字色</span>
+                <input id="ui-top-meter-val" type="color" />
+              </label>
+              <label class="color-picker-row">
+                <span>「今日」バー色</span>
+                <input id="ui-fill-today" type="color" />
+              </label>
+              <label class="color-picker-row">
+                <span>「今月」バー色</span>
+                <input id="ui-fill-month" type="color" />
+              </label>
+              <label class="color-picker-row">
+                <span>「締切」バー色</span>
+                <input id="ui-fill-deadline" type="color" />
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-reset-ui-settings" class="btn btn-danger-ghost" type="button">🔄 色調設定を初期化</button>
+        <div class="modal-footer-right">
+          <button class="btn btn-primary" data-close-modal="modal-ui-settings" type="button">閉じる</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Topbar Deadline Countdown Picker Dialog -->
+  <dialog id="modal-top-deadline" class="modal-dialog" aria-labelledby="modal-top-deadline-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-top-deadline-title">⏱️ 上部情報バー 締切カウントダウン設定</h3>
+        <button class="modal-close" data-close-modal="modal-top-deadline" type="button" aria-label="閉じる">✕</button>
+      </div>
+      <form id="form-top-deadline" class="modal-form">
+        <div class="modal-body">
+          <p class="help-text">設定した瞬間を 100%、締切日時を 0% として残り時間の割合を表示します。締切日時を過ぎると自動的に「締切未設定」に戻ります。</p>
+
+          <div class="form-group">
+            <label for="top-dl-preset-select">登録済みの締切から選ぶ（任意）</label>
+            <select id="top-dl-preset-select" class="form-select">
+              <option value="">-- 登録済み締切から選択 --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="top-dl-label">表示名 <span class="req">*</span></label>
+            <input id="top-dl-label" type="text" placeholder="例：新刊入稿締切" required />
+          </div>
+
+          <div class="form-group">
+            <label for="top-dl-datetime">締切日時 <span class="req">*</span></label>
+            <input id="top-dl-datetime" type="datetime-local" required />
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button id="btn-clear-top-deadline" class="btn btn-danger-ghost hidden" type="button">解除する</button>
+          <div class="modal-footer-right">
+            <button class="btn btn-ghost" data-close-modal="modal-top-deadline" type="button">キャンセル</button>
+            <button class="btn btn-primary" type="submit">設定する</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- Scroll Marquee Settings Dialog -->
+  <dialog id="modal-scroll-settings" class="modal-dialog" aria-labelledby="modal-scroll-settings-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-scroll-settings-title">📜 スクロール表示設定（発車標）</h3>
+        <button class="modal-close" data-close-modal="modal-scroll-settings" type="button" aria-label="閉じる">✕</button>
+      </div>
+      <form id="form-scroll-settings" class="modal-form">
+        <div class="modal-body">
+          <label class="checkbox-inline" style="padding:8px 10px;border:1px solid var(--border-light);border-radius:6px;background:var(--bg-subtle);">
+            <input id="scroll-enabled" type="checkbox" />
+            <span><strong>発車標の時計下にスクロール表示を行う</strong></span>
+          </label>
+
+          <div class="form-group">
+            <label for="scroll-text">表示文言</label>
+            <textarea id="scroll-text" rows="3" placeholder="例：まもなく入稿締切です。計画的に原稿を進めましょう！"></textarea>
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="scroll-color">文字色</label>
+              <input id="scroll-color" type="color" value="#ffb326" style="height:36px;padding:2px;width:72px;" />
+            </div>
+            <div class="form-group">
+              <label for="scroll-speed">スクロール時間（1周）</label>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <input id="scroll-speed" type="range" min="6" max="40" step="1" value="16" style="flex:1;" />
+                <span id="scroll-speed-label" class="blink-speed-label">16秒</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <div class="modal-footer-right">
+            <button class="btn btn-ghost" data-close-modal="modal-scroll-settings" type="button">キャンセル</button>
+            <button class="btn btn-primary" type="submit">保存する</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- About Tool Dialog -->
+  <dialog id="modal-about" class="modal-dialog" aria-labelledby="modal-about-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-about-title">このツールについて</h3>
+        <button class="modal-close" data-close-modal="modal-about" type="button" aria-label="閉じる">✕</button>
+      </div>
+      <div class="modal-body">
+        <dl class="about-list">
+          <div class="about-row">
+            <dt>ツール名</dt>
+            <dd><strong>まもなく即売会が参ります</strong></dd>
+          </div>
+          <div class="about-row">
+            <dt>バージョン</dt>
+            <dd id="about-version">Ver.0.19c</dd>
+          </div>
+          <div class="about-row">
+            <dt>最終更新日</dt>
+            <dd id="about-updated-at">2026-11-17</dd>
+          </div>
+          <div class="about-row">
+            <dt>著作権</dt>
+            <dd>(c)しーさいど</dd>
+          </div>
+          <div class="about-row">
+            <dt>ライセンス</dt>
+            <dd>MIT License</dd>
+          </div>
+        </dl>
+      </div>
+      <div class="modal-footer">
+        <div class="modal-footer-right">
+          <button class="btn btn-primary" data-close-modal="modal-about" type="button">閉じる</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Help Dialog -->
+  <dialog id="modal-help" class="modal-dialog modal-dialog-lg" aria-labelledby="modal-help-title">
+    <div class="modal-card modal-card-lg">
+      <div class="modal-header">
+        <h3 id="modal-help-title">❓ ヘルプ・ご利用ガイド</h3>
+        <button class="modal-close" data-close-modal="modal-help" type="button" aria-label="閉じる">✕</button>
+      </div>
+
+      <!-- Quick Jump TOC Bar -->
+      <div class="help-toc-bar">
+        <span class="help-toc-label">目次</span>
+        <div class="help-toc-links">
+          <button type="button" class="help-toc-btn" data-help-target="help-sec-intro">0. はじめに</button>
+          <button type="button" class="help-toc-btn" data-help-target="help-sec-steps">1. 使い方の流れ</button>
+          <button type="button" class="help-toc-btn" data-help-target="help-sec-backup">2. データ保存</button>
+          <button type="button" class="help-toc-btn" data-help-target="help-sec-faq">3. よくある質問</button>
+          <button type="button" class="help-toc-btn" data-help-target="help-sec-terms">4. ご利用について</button>
+        </div>
+      </div>
+
+      <div id="help-modal-body" class="modal-body help-modal-body">
+        <!-- 0. はじめに -->
+        <section id="help-sec-intro" class="help-section">
+          <h4 class="help-section-title">0. はじめに</h4>
+          <div class="help-lead-box">
+            <p>
+              <strong>「まもなく即売会が参ります」</strong>は、同人誌即売会の参加スケジュール検討と原稿締切管理をまとめて行えるブラウザツールです。
+              同じ日に複数のイベントが重なった時の参加検討や、迫ってくる入稿締切の把握を、駅の発車標のようにパッと見てわかるように作られています。
+            </p>
+          </div>
+        </section>
+
+        <!-- 1. 使い方の流れ -->
+        <section id="help-sec-steps" class="help-section">
+          <h4 class="help-section-title">📖 1. 使い方の流れ（かんたん4ステップ）</h4>
+          <p class="help-lead-desc">初めての方でも迷わずスケジュール管理を始められる基本の流れです。</p>
+
+          <div class="help-step-list">
+            <div class="help-step-card">
+              <div class="help-step-head">
+                <span class="help-step-badge">Step 1</span>
+                <h5 class="help-step-title">イベントや締切を登録する</h5>
+              </div>
+              <ul>
+                <li>右画面の<strong>「＋ イベントを追加」</strong>または<strong>「＋ 原稿締切を追加」</strong>（カレンダーの日付マスにマウスを乗せて出る「＋」でも可）から登録します。</li>
+                <li>登録画面の上部タブで<strong>「📅 イベント設定」と「⏰ 締切設定」</strong>を切り替えられるため、日付やイベント名を引き継いでそのまま締切も登録できます。</li>
+                <li>参加状況はプルダウンから<strong>「参加 / 参加（未申込） / 検討 / 不参加 / 一般参加 / 売り子参加」</strong>を選べます。</li>
+              </ul>
+            </div>
+
+            <div class="help-step-card">
+              <div class="help-step-head">
+                <span class="help-step-badge">Step 2</span>
+                <h5 class="help-step-title">よく使う名前を保存 ＆ 同日の重なりを比べる</h5>
+              </div>
+              <ul>
+                <li>イベント名・ジャンル名・場所は自由に入力でき、入力欄右上の<strong>「★ 候補に保存」</strong>を押すと次回からワンクリックで呼び出せます（右端メニューの「🏷️ 候補マスタ」で一覧管理も可能）。</li>
+                <li>同じ日に2件以上のイベントが重なると、カレンダーに<strong>「被り○」</strong>バッジが表示され、下部の日別パネルにカードが並んで会場やメモを比較できます。カード上のボタンで参加状況を1クリックで切り替えられます。</li>
+              </ul>
+            </div>
+
+            <div class="help-step-card">
+              <div class="help-step-head">
+                <span class="help-step-badge">Step 3</span>
+                <h5 class="help-step-title">左の発車標と上部バーで進捗を確認する</h5>
+              </div>
+              <ul>
+                <li>左画面の<strong>発車標ボード</strong>には登録した予定が時系列順に並び、残り日数に応じて色分け・強調表示されます。</li>
+                <li>発車標の<strong>イベント名（または締切名）をクリック</strong>すると直接編集でき、行の他の部分をクリックすると右画面の該当日に移動します。</li>
+                <li>画面上部のバーでは<strong>「今日」「今月」の経過割合</strong>と、クリックで設定できる<strong>「締切カウントダウン」</strong>（設定時点を100%→締切日時を0%として表示）を確認できます。</li>
+              </ul>
+              <div class="help-tip-box">
+                <span>💡</span>
+                <div>
+                  <b>ワンポイント：</b> 左画面と右画面の境界線、およびカレンダーと下部パネルの境界線はドラッグで広さを調整できます（ダブルクリックで初期位置に戻ります）。
+                </div>
+              </div>
+            </div>
+
+            <div class="help-step-card">
+              <div class="help-step-head">
+                <span class="help-step-badge">Step 4</span>
+                <h5 class="help-step-title">PDFログ出力や見た目をカスタマイズする</h5>
+              </div>
+              <ul>
+                <li>右端メニューの<strong>「⚙️ 設定・出力」</strong>タブから操作できます（メニューは「▶ / ◀」で折りたたみ可能）。</li>
+                <li><strong>「📄 年別PDFログ出力」</strong>：1年分の予定をシンプルな表形式でプレビューし、印刷画面から「PDFに保存」またはCSV保存ができます。</li>
+                <li><strong>「🎨 UI設定」</strong>：文字色・背景色・残り日数の色分け基準・点滅設定・<strong>カラーユニバーサルデザイン（CUD）モード</strong>・上部バー表示を設定できます。</li>
+                <li><strong>「📜 スクロール表示設定」</strong>：発車標の時計下に電光掲示板風のスクロールメッセージを流せます。</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. データ保存 -->
+        <section id="help-sec-backup" class="help-section">
+          <h4 class="help-section-title">💾 2. データ保存・バックアップ方法（重要）</h4>
+          <div class="help-alert-box">
+            <div class="help-alert-head">⚠️ データの保持と「JSON保存」のお願い</div>
+            <p>
+              登録した予定・締切・候補リストは、お使いのブラウザ内の領域（<code>localStorage</code>）に自動で保存されるため、画面を再読み込みしても消えません。
+            </p>
+            <p>
+              ただし、ブラウザの<strong>「閲覧データ／キャッシュの削除」</strong>を行ったり、<strong>シークレット（プライベート）ウィンドウ</strong>を閉じたりすると、保存されていたデータが消えてしまう恐れがあります。
+            </p>
+            <p>
+              大切な予定を守るため、画面右上の<strong>「💾 データ保存 (JSON)」</strong>（または右端メニュー「📁 ファイル」タブ内）から、こまめにJSONファイルとしてPCへ保存しておくことをおすすめします。
+            </p>
+          </div>
+          <ul class="help-plain-list">
+            <li><strong>📂 データ読込 (JSON)</strong>：保存したJSONファイルを読み込みます。「上書き」だけでなく「現在のデータに追加・統合」も選べます。</li>
+            <li><strong>🧪 サンプル読込</strong>：動作を試したい時にダミーの予定や重複例を読み込みます（※現在の入力内容は一旦初期化されます）。</li>
+          </ul>
+        </section>
+
+        <!-- 3. よくある質問 -->
+        <section id="help-sec-faq" class="help-section">
+          <h4 class="help-section-title">💬 3. よくありそうな質問（FAQ）</h4>
+          <div class="help-faq-list">
+            <div class="help-faq-item">
+              <div class="help-faq-q"><span class="faq-badge q">Q</span>同じ日に2〜3のイベントが重なった時はどうやって比べる？</div>
+              <div class="help-faq-a"><span class="faq-badge a">A</span>カレンダーで該当の日をクリックするか、年間集計の「⚠ 同日被り ○日」をクリックして日別一覧を開くと、その日のイベントカードが横に並んで比較できます。</div>
+            </div>
+            <div class="help-faq-item">
+              <div class="help-faq-q"><span class="faq-badge q">Q</span>先々1年分の予定をまとめて確認したい</div>
+              <div class="help-faq-a"><span class="faq-badge a">A</span>右画面の月タブ右端にある「年間」または<strong>「向こう一年」</strong>をクリックすると、年をまたいだ本日から1年分の予定も一覧で確認できます。</div>
+            </div>
+            <div class="help-faq-item">
+              <div class="help-faq-q"><span class="faq-badge q">Q</span>入力したスケジュールが外部サーバーに送信されないか心配</div>
+              <div class="help-faq-a"><span class="faq-badge a">A</span>すべての処理・データ保存はお使いのブラウザ内部だけで完結しており、外部へデータを送信することは一切ありません。オフラインでも動作します。</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. ご利用について -->
+        <section id="help-sec-terms" class="help-section">
+          <h4 class="help-section-title">📄 4. ご利用について・動作環境</h4>
+          <div class="help-terms-grid">
+            <div class="help-terms-card">
+              <h5>ライセンス</h5>
+              <p>個人・サークルを問わず無料で自由にお使いいただけます（<strong>MIT License</strong> / Copyright (c) しーさいど）。</p>
+            </div>
+            <div class="help-terms-card">
+              <h5>推奨動作環境</h5>
+              <p>Google Chrome、Microsoft Edge、Mozilla Firefox、Safari などの最新ブラウザ（PC環境推奨）。</p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="modal-footer">
+        <div class="modal-footer-right">
+          <button class="btn btn-primary" data-close-modal="modal-help" type="button">閉じる</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast hidden" popover="manual" role="status" aria-live="polite"></div>
+
+  <!-- ==================== PRINT-ONLY PDF LOG AREA ==================== -->
+  <div id="print-area" class="print-only" aria-hidden="true"></div>
+
+  <!-- Sequential non-module scripts for file:// compatibility -->
+  <script src="js/state.js" defer></script>
+  <script src="js/settings.js" defer></script>
+  <script src="js/presets.js" defer></script>
+  <script src="js/board.js" defer></script>
+  <script src="js/planner.js" defer></script>
+  <script src="js/outputs.js" defer></script>
+  <script src="js/main.js" defer></script>
+</body>
+</html>
